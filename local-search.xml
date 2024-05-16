@@ -4,13 +4,25 @@
   
   
   <entry>
-    <title>page</title>
+    <title>理论计算机科学基础（5）——可归约性</title>
     <link href="/2024/05/16/page/"/>
     <url>/2024/05/16/page/</url>
     
-    <content type="html"><![CDATA[]]></content>
+    <content type="html"><![CDATA[<h1>理论计算机科学基础（5）——可归约性</h1><p>详见 blog: <a href="https://zemdalk.github.io/2022/04/07/%E7%90%86%E8%AE%BA%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%A7%91%E5%AD%A6%E5%9F%BA%E7%A1%80-5.html">https://zemdalk.github.io/2022/04/07/理论计算机科学基础-5.html</a></p>]]></content>
     
     
+    <categories>
+      
+      <category>Computation Theory</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>CS</tag>
+      
+    </tags>
     
   </entry>
   
