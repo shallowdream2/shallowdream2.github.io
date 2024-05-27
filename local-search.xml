@@ -4,6 +4,35 @@
   
   
   <entry>
+    <title>课程实验：分布式Key值存储系统</title>
+    <link href="/2024/05/28/%E5%88%86%E5%B8%83%E5%BC%8FKV/"/>
+    <url>/2024/05/28/%E5%88%86%E5%B8%83%E5%BC%8FKV/</url>
+    
+    <content type="html"><![CDATA[<h1>课程实验：分布式Key值存储系统</h1><h2 id="Task1：LSM-Tree源码阅读和分析">Task1：LSM Tree源码阅读和分析</h2><p>github链接：<a href="https://github.com/HuangDunD/RucDDBS">https://github.com/HuangDunD/RucDDBS</a></p><p>任务：阅读 src/storage 和 include/storage 部分的代码并完成代码分析报告</p><p><img src="/%E5%88%86%E5%B8%83%E5%BC%8FKV/image-20240528001609952.png" alt="LST-TREE"></p><h3 id="Main-Data-Structure">Main Data Structure</h3><h4 id="Block">Block</h4><p><code>Block</code>类有以下成员函数：</p><ol><li><code>Block(const std::string &amp;block_content)</code>：构造函数，接受一个字符串参数，是包含某种数据块的字符串。</li><li><code>get(const std::string &amp;key) const</code>：接受一个Key作为参数，返回一个包含布尔值和字符串的对。这是用于从数据块中获取特定Key的值。</li><li><code>NewIterator() const</code>：返回一个指向<code>Iterator</code>的<code>std::unique_ptr</code>。这是用于遍历数据块的迭代器。</li><li><code>extract(uint64_t position, uint64_t *size, std::string &amp;s) const</code>：接受一个位置、一个大小指针和一个字符串引用作为参数。这是用于从数据块的特定位置提取数据的函数。</li></ol><p>此外，<code>Block</code>类还有一个私有成员变量<code>block_content_</code>，这是存储数据块内容的字符串。</p><p>注意，复制构造函数和赋值运算符被禁用，这意味着不能复制<code>Block</code>类的实例。这是因为<code>Block</code>类的实例包含大量数据，复制它们会消耗大量内存。</p><h4 id="Entry">Entry</h4><p>Entry 是一个KV结构的struct，存放<code>key_</code>,<code>value_</code></p><h4 id="SSTable">SSTable</h4><p>SSTable是用来存放Block的一个表，实现了以下接口</p><ol><li><code>SSTable</code>: 构造函数，接收一个ifstream，一个BlockCache。它文件的末尾读取索引的偏移量和大小，然后加载索引块并创建一个新的迭代器。</li><li><code>loadBlock</code> 方法用于从给定的偏移量和大小加载一个块。它从文件中读取块的数据。如果块是压缩的，它会使用snappy库进行解压缩。</li><li><code>get</code> 方法用于从SSTable中获取一个Key的值。它使用索引迭代器来查找包含该Key的块。如果找到了包含Key的块，它会从块中获取Key的值。如果没有找到包含Key的块，它会返回一个表示失败的对。</li></ol><h4 id="LevelZero">LevelZero</h4><p>LevelZero是对LST Tree DiskStorage的抽象，集成了DiskStorage面向的服务</p><p>支持 <code>add</code>,<code>search</code>,<code>save_meta</code>等功能</p><ul><li><code>add</code>方法：将<code>memtable</code>中的KV创建新的SSTable。这是将内存中的数据持久化到磁盘的过程。</li><li><code>search</code>方法：在<code>LevelZero</code>中查找指定的键。</li><li><code>size</code>方法：返回<code>LevelZero</code>的大小。</li><li><code>save_meta</code>方法：保存元数据。涉及到将内存中的数据写入磁盘。</li></ul><h4 id="DiskStorage">DiskStorage</h4><p>集成了LevelZero的disk layer服务，为 LST Tree的Disk部分，向上级提供服务。</p><ol><li><p><code>add</code>方法接受一个<code>SkipList</code>类型的参数<code>memtable</code>，将其添加到<code>level0_</code>中，并将<code>no_</code>的值加1。<code>no_</code>是一个用于跟踪添加操作的计数器。如果<code>level0_</code>溢出，需要调用一个合并函数（在这段代码中并未显示）。每次添加操作后，都会调用<code>save_meta</code>方法保存元数据。</p></li><li><p><code>search</code>方法接受一个字符串<code>key</code>作为参数，返回在<code>level0_</code>中搜索<code>key</code>的结果。返回类型是一个包含布尔值和字符串的对，布尔值表示是否找到了键，字符串则是键对应的值。</p></li><li><p><code>read_meta</code>方法用于读取元数据。如果元数据文件存在，它会打开文件并读取一个<code>uint64_t</code>类型的值到<code>no_</code>。如果元数据文件不存在，它会将<code>no_</code>设置为0，并调用<code>save_meta</code>方法保存元数据。</p></li><li><p><code>save_meta</code>方法用于保存元数据。它会打开元数据文件，并将<code>no_</code>的值作为字节流写入文件</p></li></ol><h4 id="SkipList">SkipList</h4><p>该类用于做内存中的mmtable，利用跳表为链表建立了多级索引，加速了CRUD速度。</p><ul><li><p><code>put</code> 在SkipList中插入一个新的KV。如果Key已经存在于跳跃列表中，那么就更新该Key的值；如果Key不存在，那么就创建一个新的节点。</p><p>函数首先使用<code>findGreatorOrEqual</code>函数查找大于或等于给定Key的第一个节点。如果找到的节点的Key等于给定的Key，那么就更新该节点的值，并更新跳跃列表的字节大小。</p><p>如果找到的节点的Key不等于给定的Key，那么就需要插入一个新的节点。首先，生成一个随机的height。如果生成的height大于当前的最大height，那么就需要扩大跳跃列表的height。然后，创建一个新的节点，并更新指针，使得新的节点正确地插入到跳跃列表中。最后，更新跳跃列表的条目数量和字节大小。</p></li><li><p><code>get</code> : 类似有序数组的查找，受segment的影响，平均时间为O(log(n))</p></li><li><p><code>del</code>: 先获取位置，类似链表的删除。</p></li><li><p><code>enlargeHeight</code>：由于height只影响效率，不影响正确性，仅仅加高head和tail的next array</p></li></ul><h4 id="KVStore">KVStore</h4><p>KVStore是面向事务的KV存储服务，支持以下操作：</p><ol><li><code>put</code>:接受KV对和一个事务对象。如果启用了log record，它会创建一个log并将其添加到log manager。然后，它将KV添加到内存表中。如果内存表的空间超过了预设的阈值，它会将内存表的内容添加到磁盘存储，并清空内存表。</li><li><code>del</code>：检查 mmtable中是否有，如果有，删除并记录到log record。如果mmtable中没有，就再diskstorage中搜索，找到了先缓存到mmtable，再返回</li><li><code>reset</code>： 清空mmtable</li><li><code>flush</code>： 将mmtable中的值flush到diskstorage</li></ol><h3 id="Layer-Graph">Layer Graph</h3><table><thead><tr><th>Module</th><th>SubModule</th><th>Description</th></tr></thead><tbody><tr><td>KVStore</td><td>mmTable(SkipList), DiskStorage</td><td>提供整个数据存储服务最高级抽象</td></tr><tr><td>mmTable</td><td></td><td>内存缓冲表，用SkipList实现</td></tr><tr><td>DiskStorage</td><td>LevelZero</td><td>提供Disk持久化服务</td></tr><tr><td>LevelZero</td><td>SSTable</td><td>与Disk交互的部分，其中有多个SSTable</td></tr><tr><td>SSTable</td><td>Block</td><td>有序的Table，方便顺序写入Disk</td></tr><tr><td>Block</td><td>Entry</td><td>SSTable中存取数据的最小单位，Entry</td></tr><tr><td>Entry</td><td></td><td>封装KV对</td></tr></tbody></table>]]></content>
+    
+    
+    <categories>
+      
+      <category>DB</category>
+      
+      <category>LSM Tree</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>CS</tag>
+      
+      <tag>RUC-LABS</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>k8s集群搭建实战</title>
     <link href="/2024/05/20/page-2/"/>
     <url>/2024/05/20/page-2/</url>
@@ -73,6 +102,8 @@
     <tags>
       
       <tag>CS</tag>
+      
+      <tag>RUC-LABS</tag>
       
     </tags>
     
