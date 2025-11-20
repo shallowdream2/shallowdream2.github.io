@@ -9,7 +9,7 @@ profile:
   image: self-portrait.jpeg
   image_circular: false # crops the image to make it circular
   more_info: >
-    Contact me at c72peng@uwaterloo.ca
+    Contact me at <a href="mailto:c72peng@uwaterloo.ca">c72peng@uwaterloo.ca</a>
 
 selected_papers: true # includes a list of papers marked as "selected={true}"
 social: true # includes social icons at the bottom of the page
