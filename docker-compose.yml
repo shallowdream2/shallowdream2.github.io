@@ -1,21 +1,26 @@
-# this file uses prebuilt image in dockerhub
+# this file now uses local Dockerfile to build the image
 services:
   jekyll:
-    image: amirpourmand/al-folio:v0.14.6
     build: .
-    # uncomment these if you are having this issue with the build:
-    # /usr/local/bundle/gems/jekyll-4.3.4/lib/jekyll/site.rb:509:in `initialize': Permission denied @ rb_sysopen - /srv/jekyll/.jekyll-cache/.gitignore (Errno::EACCES)
-    # and fill the args values with the output of the commands on the right
+    # 如果以后需要解决权限问题，再把下面这段 build.args 打开即可
     # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     #   args:
     #     GROUPID: # id -g
     #     GROUPNAME: # id -gn
     #     USERID: # id -u
     #     USERNAME: # echo $USER
+
+    # 不要再用预构建镜像，否则所有改动都白费
+    # image: amirpourmand/al-folio:v0.14.6
+
     ports:
-      - 8080:8080
-      - 35729:35729
+      - "8080:8080"
+      - "35729:35729"
+
     volumes:
       - .:/srv/jekyll
+
     environment:
       - JEKYLL_ENV=development
